@@ -1,0 +1,89 @@
+---
+  - name: Check device connectivity
+    action: ssh_dev
+    register: Connection_details
+  - set_fact:
+      constatus: '{{Connection_details.Status}}'
+  - block:
+    # Device not reachable
+    - name: Unable to access device
+      set_fact:
+        work_note: "{{inventory_hostname}} - Device not reachable"
+
+    - name: Add work notes - Unable to access device
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+
+    - name: Re-Assign the ticket to the Engineer
+      set_fact:
+       work_note: "Update and Re-Assigned to Engineer"
+        
+    - name: Add work notes - Unable to access device
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+      
+    - name: Reassign the ticket
+      set_fact:
+        work_notes: "Reassigning the ticket to the engineer"
+          
+    - name: script reassign the ticket
+      action: snowupdatereassign comment='{{work_notes}}'
+      tags: snowupdatereassign
+      register: reassignresult
+    - meta: end_play   
+    when: "'Update and Re-Assign the ticket to the Engineer' in Connection_details.Status"
+        
+  - block:
+    - name: Able to access device
+      set_fact:
+        work_note: "{{inventory_hostname}} - {{Connection_details.Status}}"
+
+    - name: Add work notes - Able to access device
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+
+    - block:
+  # show version 
+      - block:
+        - name: Set Fact - Show Version
+          set_fact:
+            work_note: 'Fetch Show Version'
+
+        - name: Add work notes - Show Version
+          action: snowcommentupdate comment='{{work_note}}'
+          tags: snowcommentupdate
+      
+        - name: Fetch Show Version
+          action: showVersion
+          register: sVersion
+        - block:
+          - name: Set Fact - Show Version
+            set_fact:
+              work_note: '{{sVersion.cmd_Output}}'
+
+          - name: Add work notes - Show Version
+            action: snowcommentupdate comment='{{work_note}}'
+            tags: snowcommentupdate
+          when: "'Timed out' not in sVersion.cmd_Output or 'timed out' not in sVersion.cmd_Output"
+          
+        - name: Set Fact - Show Clock
+            work_note: 'Fetch Show Clock'
+
+        - name: Add work notes - Show Clock
+          action: snowcommentupdate comment='{{work_note}}'
+          tags: snowcommentupdate
+      
+        - name: Fetch Show Clock
+          action: showClock
+          register: sclock
+        - block:
+          - name: Set Fact - Show Clock
+            set_fact:
+              work_note: '{{sclock.cmd_Output}}'
+
+          - name: Add work notes - Show Clock
+            action: snowcommentupdate comment='{{work_note}}'
+            tags: snowcommentupdate
+          when: "'Timed out' not in sclock.cmd_Output or 'timed out' not in sclock.cmd_Output"
+          
+    when: "'SSH' in Connection_details.Status"
