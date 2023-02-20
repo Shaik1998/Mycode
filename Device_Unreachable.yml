@@ -1,0 +1,27 @@
+---  
+ # Device down during execution
+ - name: Device down during execution
+   set_fact:
+     work_note: "{{ inventory_hostname }} - Device down during execution"
+
+ - name: Add work notes - Device down during execution
+   action: snowcommentupdate comment='{{work_note}}'
+   tags: snowcommentupdate
+
+ - name: Re-Assign the ticket to the Engineer
+   set_fact:
+    work_note: "Update and Re-Assigned to Engineer"
+
+ - name: Add work notes - Unable to access device
+   action: snowcommentupdate comment='{{work_note}}'
+   tags: snowcommentupdate
+   
+ - name: Device down during execution
+   set_fact:
+     work_note: "{{ inventory_hostname }} - Device down during execution, Hence Re-Assigned to Engineer."
+  
+ - name: script reassign the ticket
+   action: snowupdatereassign comment='{{work_note}}'
+   tags: snowupdatereassign
+   register: reassignresult
+ - meta: end_play
