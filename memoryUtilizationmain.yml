@@ -1,0 +1,134 @@
+---
+- name: Network Memory Utilization
+  hosts: all
+  gather_facts: no
+  ignore_errors: yes
+  ignore_unreachable: yes
+  vars:
+    customer_id: BSAMCorpAutomation
+    group: BSAMCorpAutomation
+    lookup_URI: http://lookupprocessor:8000
+    bot_name: BSAM_Corp_Cisco_Memory_Utilization
+    sysID: "{{ sysID }}"
+    deviceName: "{{deviceName}}"
+    nodeIP: "{{ nodeIP }}"
+    ansible_command_timeout: 180
+    Device_Connected: ./tasks/Device_Connected.yml
+    Device_Unreachable: ./tasks/Device_Unreachable.yml
+    validate_mandatory_params: ../microbots_tasks/validate_mandatory_params.yml
+  tasks:
+    - name: Bot execution started move the state to in progress
+      set_fact:
+        state: "2"
+    - name: status update - bot execution started
+      action: snowstatusupdate states='{{state}}'
+      tags: snowstatusupdate
+    - name: Bot execution started move the state to inprogress
+      set_fact:
+        work_notes: "{{bot_name}} - BOT execution started and ticket assigned to  ML-BSAM-NW-NAP-Bot"
+    - name: Add work notes - bot execution started
+      action: snowcommentupdate comment='{{work_notes}}'
+      tags: snowcommentupdate
+    - name: Fetch bot lookup data
+      block:
+        - name: Fetching bot lookup data
+          action: generic_lookup type='{{bot_name}}' group='{{group}}'
+          register: output
+          ignore_errors: yes
+          delegate_to: localhost
+          no_log: yes
+        - name: Storing lookup values
+          set_fact:
+            username: "{{output.lookups.username}}"
+            password: "{{output.lookups.password | b64decode}}"
+          no_log: yes
+          ignore_errors: yes
+        - name: Call validate mandatory parameters
+          block:
+            - name: Set validate mandatory parameters arguments
+              set_fact:
+                lookup_mand_vars_list:
+                  - username
+                  - password
+                exit_host_on_error: yes
+            - name: Call validate mandatory parameters
+              include_tasks: "{{validate_mandatory_params}}"
+      tags: genericlookup
+      
+    - name: Check device reachability
+      shell: ping -c 1 {{inventory_hostname}}
+      register: device
+      #delegate_to: "{{delegated_host}}"
+      #remote_user: "{{delegated_user}}"
+      ignore_errors: yes
+      ignore_unreachable: yes
+    - debug: var=device
+
+    - name: Set fact - Device reachability output
+      set_fact:
+        output: '{{device.stdout}}'
+
+    - debug: var=output
+    
+    - name: Set fact - Device name error
+      set_fact:
+        invalidDevice: '{{device.stderr}}'
+        
+    - block:
+      - name: Invalid device found
+        include_tasks: "{{ Device_Unreachable }}"
+      when: '"Name or service not know" in invalidDevice'
+      
+      
+    - name: Fetch device IP
+      set_fact:
+        nodeIP: '{{output.split("\n")[0].split(" ")[2] | regex_findall("\d+") | join(" ") | regex_replace(" ",".")}}'
+
+    - debug: var=nodeIP
+    - name: Storing lookup values
+      set_fact:
+        HOST: "{{inventory_hostname}}"
+    - debug: var=HOST
+    
+    
+    - name: Set fact - Check Ping Status for device
+      set_fact:
+        work_note: "Check Ping Status for device {{ inventory_hostname }}"
+
+    - name: Add work notes - Ping Status for device
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+
+    - name: Ping the Remote IP
+      shell: ping -c 5 {{ nodeIP }}
+      register: ping_result
+
+    # On Successful Ping
+    - block:
+
+      - name: Ping successful
+        include_tasks: '{{ Device_Connected }}'
+
+      when: ping_result.stdout_lines is search(" 0% packet loss") 
+
+    # On Unsuccessful Ping
+    - block:
+      - name: On Unsuccessful Ping
+        set_fact:
+          work_note: 'Ping Failed, Trying to ping again'
+
+      - name: Add work notes - Ping Status for device
+        action: snowcommentupdate comment='{{work_note}}'
+        tags: snowcommentupdate
+
+      - name: Ping the Remote IP
+        shell: ping -c 5 {{ nodeIP }}
+        register: ping_result1
+
+      - block:
+        - name: script reassign the ticket
+          action: snowupdatereassign comment='Unable to ping the device , Hence Re-Assigned to Enginner'
+          tags: snowupdatereassign
+          register: reassignresult
+        
+        when: ping_result1.stdout_lines is search(" 100% packet loss")
