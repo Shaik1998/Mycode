@@ -45,6 +45,11 @@
     - block:
   # show version 
       - block:
+        - name: Fetch Terminal length vi SSH
+          ios_command:
+            commands: terminal length 0
+          register: tLen
+          
         - name: Set Fact - Show Version
           set_fact:
             work_note: 'Fetch Show Version'
@@ -85,5 +90,77 @@
             action: snowcommentupdate comment='{{work_note}}'
             tags: snowcommentupdate
           when: "'Timed out' not in sclock.cmd_Output or 'timed out' not in sclock.cmd_Output"
-          
+
+        - name: set Fact - counter
+          set_fact:
+            counter: 1        
+        - name: Running show processes memory & show memory statistics 5 times every 3 minutes     
+          include_tasks: {{Show_Memory}}
+          with_items:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          register: latest_out
+        - debug: var=latest_out
+
+      - name: Set Fact - Show Clock
+          work_note: 'Fetch Show Clock'
+
+      - name: Add work notes - Show Clock
+        action: snowcommentupdate comment='{{work_note}}'
+        tags: snowcommentupdate
+    
+      - name: Fetch Show Clock
+        action: showClock
+        register: sclock
+      - block:
+        - name: Set Fact - Show Clock
+          set_fact:
+            work_note: '{{sclock.cmd_Output}}'
+
+        - name: Add work notes - Show Clock
+          action: snowcommentupdate comment='{{work_note}}'
+          tags: snowcommentupdate
+        when: "'Timed out' not in sclock.cmd_Output or 'timed out' not in sclock.cmd_Output"
+
+#show logging 
+      - name: Set Fact - Run show logging command
+        set_fact:
+          work_note: "Running show logging command"
+
+      - name: Add work notes - Run show logging command
+        action: snowcommentupdate comment='{{work_note}}'
+        tags: snowcommentupdate
+
+      - name: fetch logs
+        set_fact:
+        logs: '{{output.logs}}'
+
+      - name: Set Fact - fetch show logging command output
+        set_fact:
+        work_note: "show logging command output is - {{logs[-50:] | join('\n')}}"
+
+      - name: Add work notes - fetch show logging command output
+        action: snowcommentupdate comment='{{work_note}}'
+        tags: snowcommentupdate
+
+
+
+      - name: Memory Utilization
+      - name: fetching processor pool & I/O pool memory information
+        set_fact:
+          total_memory: "{{ show_memory.stdout_lines[0][0].split()[3]|int + show_memory.stdout_lines[0][1].split()[3]|int }}"
+          total_free_memory: "{{ show_memory.stdout_lines[0][0].split()[7]|int + show_memory.stdout_lines[0][1].split()[7]|int }}"
+          total_used_memory: "{{ show_memory.stdout_lines[0][0].split()[5]|int + show_memory.stdout_lines[0][1].split()[5]|int }}"
+
+      - name: total memory information of a device
+        debug:
+          msg: "Total:{{total_memory}} ,Free: {{total_free_memory}},Used: {{total_used_memory}}"
+
+      - name: Calculate Memory Utilization
+        set_fact:
+          mem_utilization: "{{ 100*(total_used_memory|int)/(total_memory|int) }}"
+      
     when: "'SSH' in Connection_details.Status"
