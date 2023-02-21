@@ -14,6 +14,7 @@
     nodeIP: "{{ nodeIP }}"
     ansible_command_timeout: 180
     Device_Connected: ./tasks/Device_Connected.yml
+    Show_Memory: ./tasks/Memory_Commands.yml
     Device_Unreachable: ./tasks/Device_Unreachable.yml
     validate_mandatory_params: ../microbots_tasks/validate_mandatory_params.yml
   tasks:
