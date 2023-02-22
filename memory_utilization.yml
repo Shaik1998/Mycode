@@ -1,0 +1,138 @@
+---  
+ # running show process memory and show memory statistics
+ #show processes memory
+- name: Running show processes memory attempt {{item}}/5
+  set_fact:
+    work_note: "Attaching show processes memory command attempt {{item}}/5"
+- name: Add work notes - Fetch logs
+  action: snowcommentupdate comment='{{work_note}}'
+  tags: snowcommentupdate
+
+- name: Running show processes memory command attempt {{item}}/5
+  ios_command:
+    commands:
+    - show processes memory
+  register: show_memory
+
+- block: 
+  - name: Set Fact - fetch show memory
+    set_fact:
+      work_note: "{{ show_memory.cmd_Output }}"
+  - debug: var=show_memory
+
+  - set_fact:
+    logs: '{{show_memory.cmd_Output}}'
+
+  - name: set fact -  file name
+    set_fact:
+      filename: "show_memoryattempt{{item}}.txt"
+    
+  - name: Attachment
+    action: snowlogattachment
+    register: result1
+  - debug: var=result1
+
+#show memory statistics
+- name: Running show memory statistics command attempt {{item}}/5
+  set_fact:
+    work_note: "show memory statistics attempt {{item}}/5"
+
+- name: Add work notes - fetching show memory statistics command attempt {{item}}/5
+  action: snowcommentupdate comment='{{work_note}}'
+  tags: snowcommentupdate
+
+- name: Running show memory statistics
+  ios_command:
+    commands:
+    - show memory statistics
+  register: show_memory_statistics
+
+- name: Display show memory statistics
+  debug:
+    var: show_memory.stdout_lines
+
+- name: command output
+  set_fact:
+    work_note: "{{ show_memory_statistics.stdout_lines }}"
+
+- name: Add work notes - fetch show processes memory command attempt {{item}}/5
+  action: snowcommentupdate comment='{{work_note}}'
+  tags: snowcommentupdate
+
+- name: fetching processor memory information
+  set_fact:
+    total_memory: "{{ show_memory.stdout_lines[0][0].split()[3]|int + show_memory.stdout_lines[0][1].split()[3]|int }}"
+    total_free_memory: "{{ show_memory.stdout_lines[0][0].split()[7]|int + show_memory.stdout_lines[0][1].split()[7]|int }}"
+    total_used_memory: "{{ show_memory.stdout_lines[0][0].split()[5]|int + show_memory.stdout_lines[0][1].split()[5]|int }}"
+
+- name: total processor memory information of a device
+  debug:
+    msg: "Total:{{total_memory}} ,Free: {{total_free_memory}},Used: {{total_used_memory}}"
+
+- name: Calculate Memory Utilization
+  set_fact:
+    mem_utilization: "{{ 100*(total_used_memory|int)/(total_memory|int) }}"
+
+- name: fetching I/O memory information
+  set_fact:
+    total_memory_io: "{{ show_memory.stdout_lines[0][0].split()[3]|int + show_memory.stdout_lines[0][2].split()[3]|int }}"
+    total_free_memory_io: "{{ show_memory.stdout_lines[0][0].split()[7]|int + show_memory.stdout_lines[0][2].split()[7]|int }}"
+    total_used_memory_io: "{{ show_memory.stdout_lines[0][0].split()[5]|int + show_memory.stdout_lines[0][2].split()[5]|int }}"
+
+- name: total I/O memory information of a device
+  debug:
+    msg: "Total:{{total_memory_io}} ,Free: {{total_free_memory_io}},Used: {{total_used_memory_io}}"
+
+- name: Calculate Memory Utilization I/O
+  set_fact:
+    mem_utilization_io: "{{ 100*(total_used_memory_io|int)/(total_memory_io|int) }}"
+
+- set_fact:
+    counter: "{{counter|int +1}}"
+  when: item|int > 2 and mem_utilization|int > 90
+
+- set_fact:
+    counter_io: "{{counter_io|int +1}}"
+  when: item|int > 2 and mem_utilization_io|int > 90
+
+# - name: Set Fact - Show Clock
+#   set_fact:
+#     work_note: 'Fetch Show Clock'
+
+# - name: Add work notes - Show Clock
+#   action: snowcommentupdate comment='{{work_note}}'
+#   tags: snowcommentupdate
+
+# - name: Fetch Show Clock
+#   action: showClock
+#   register: sclock
+# - block:
+#   - name: Set Fact - Show Clock
+#     set_fact:
+#       work_note: '{{sclock.cmd_Output}}'
+
+#   - name: Add work notes - Show Clock
+#     action: snowcommentupdate comment='{{work_note}}'
+#     tags: snowcommentupdate
+#   when: "'Timed out' not in sclock.cmd_Output or 'timed out' not in sclock.cmd_Output"
+
+# #show logging 
+# - name: Set Fact - Run show logging command
+#   set_fact:
+#     work_note: "Running show logging command"
+
+# - name: Add work notes - Run show logging command
+#   action: snowcommentupdate comment='{{work_note}}'
+#   tags: snowcommentupdate
+
+# - name: fetch logs
+#   set_fact:
+#   logs: '{{output.logs}}'
+
+# - name: Set Fact - fetch show logging command output
+#   set_fact:
+#   work_note: "show logging command output is - {{logs[-50:] | join('\n')}}"
+
+# - name: Add work notes - fetch show logging command output
+#   action: snowcommentupdate comment='{{work_note}}'
+#   tags: snowcommentupdate

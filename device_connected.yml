@@ -1,0 +1,171 @@
+---
+  - name: Check device connectivity
+    action: ssh_dev
+    register: Connection_details
+  - set_fact:
+      constatus: '{{Connection_details.Status}}'
+  - block:
+    # Device not reachable
+    - name: Unable to access device
+      set_fact:
+        work_note: "{{inventory_hostname}} - Device not reachable"
+
+    - name: Add work notes - Unable to access device
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+
+    - name: Re-Assign the ticket to the Engineer
+      set_fact:
+       work_note: "Update and Re-Assigned to Engineer"
+        
+    - name: Add work notes - Unable to access device
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+      
+    - name: Reassign the ticket
+      set_fact:
+        work_notes: "Reassigning the ticket to the engineer"
+          
+    - name: script reassign the ticket
+      action: snowupdatereassign comment='{{work_notes}}'
+      tags: snowupdatereassign
+      register: reassignresult
+    - meta: end_play   
+    when: "'Update and Re-Assign the ticket to the Engineer' in Connection_details.Status"
+        
+  - block:
+    - name: Able to access device
+      set_fact:
+        work_note: "{{inventory_hostname}} - {{Connection_details.Status}}"
+
+    - name: Add work notes - Able to access device
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+
+    - block:
+  # show version 
+      - block:
+        - name: Fetch Terminal length vi SSH
+          ios_command:
+            commands: terminal length 0
+          register: tLen
+          
+        - name: Set Fact - Show Version
+          set_fact:
+            work_note: 'Fetch Show Version'
+
+        - name: Add work notes - Show Version
+          action: snowcommentupdate comment='{{work_note}}'
+          tags: snowcommentupdate
+      
+        - name: Fetch Show Version
+          action: showVersion
+          register: sVersion
+        - block:
+          - name: Set Fact - Show Version
+            set_fact:
+              work_note: '{{sVersion.cmd_Output}}'
+
+          - name: Add work notes - Show Version
+            action: snowcommentupdate comment='{{work_note}}'
+            tags: snowcommentupdate
+          when: "'Timed out' not in sVersion.cmd_Output or 'timed out' not in sVersion.cmd_Output"
+          
+        - name: Set Fact  Show Clock
+          set_fact:
+            work_note: 'Fetch Show Clock'
+
+        - name: Add work notes - Show Clock
+          action: snowcommentupdate comment='{{work_note}}'
+          tags: snowcommentupdate
+      
+        - name: Fetch Show Clock
+          action: showClock
+          register: sclock
+        - block:
+          - name: Set Fact - Show Clock
+            set_fact:
+              work_note: '{{sclock.cmd_Output}}'
+
+          - name: Add work notes - Show Clock
+            action: snowcommentupdate comment='{{work_note}}'
+            tags: snowcommentupdate
+          when: "'Timed out' not in sclock.cmd_Output or 'timed out' not in sclock.cmd_Output"
+
+        - name: set Fact - counter
+          set_fact:
+            counter: 0
+        - name: set counter I/O
+          set_fact:
+            counter: 0
+        - name: Running show processes memory & show memory statistics 5 times every 3 minutes     
+          include_tasks: {{Show_Memory}}
+          with_items:
+          - 1
+          - 2
+          - 3
+          - 4
+          - 5
+          register: latest_out
+        - debug: var=latest_out
+
+      - name: Set Fact - Show Clock
+        set_fact:
+          work_note: 'Fetch Show Clock'
+
+      - name: Add work notes - Show Clock
+        action: snowcommentupdate comment='{{work_note}}'
+        tags: snowcommentupdate
+    
+      - name: Fetch Show Clock
+        action: showClock
+        register: sclock
+      - block:
+        - name: Set Fact - Show Clock
+          set_fact:
+            work_note: '{{sclock.cmd_Output}}'
+
+        - name: Add work notes - Show Clock
+          action: snowcommentupdate comment='{{work_note}}'
+          tags: snowcommentupdate
+        when: "'Timed out' not in sclock.cmd_Output or 'timed out' not in sclock.cmd_Output"
+
+#show logging 
+      - name: Set Fact - Run show logging command
+        set_fact:
+          work_note: "Running show logging command"
+
+      - name: Add work notes - Run show logging command
+        action: snowcommentupdate comment='{{work_note}}'
+        tags: snowcommentupdate
+
+      - name: fetch logs
+        set_fact:
+        logs: '{{output.logs}}'
+
+      - name: Set Fact - fetch show logging command output
+        set_fact:
+        work_note: "show logging command output is - {{logs[-50:] | join('\n')}}"
+
+      - name: Add work notes - fetch show logging command output
+        action: snowcommentupdate comment='{{work_note}}'
+        tags: snowcommentupdate
+
+      - block:
+        - name: Reassign the ticket
+          set_fact:
+            work_note: "Reassiging the ticket as memory utilization is >90% in last 3 attempts"
+        - name: script reassign the ticket
+          action: snowupdatereassign comment='{{work_notes}}'
+          tags: snowupdatereassign
+        when: counter|int >2 or counter_io|int > 2
+        
+      - block:
+        - name: Reassign the ticket
+          set_fact:
+            work_note: "Resolving the ticket as memory utilization is <90% in last 3 attempts"
+        - name: script Resolving the ticket
+          action: snowresolveincident close_note='{{work_note}}'
+          tags: snowresolveincident
+        when: counter|int <3 and counter_io|int < 3
+    when: "'SSH' in Connection_details.Status"
