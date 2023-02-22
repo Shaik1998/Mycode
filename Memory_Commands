@@ -1,12 +1,12 @@
 ---  
  # running show process memory and show memory statistics
  #show processes memory
- - name: Running show processes memory attempt {{item}}/5
-   set_fact:
-     work_note: "Attaching show processes memory command attempt {{item}}/5"
- - name: Add work notes - Fetch logs
-   action: snowcommentupdate comment='{{work_note}}'
-   tags: snowcommentupdate
+  - name: Running show processes memory attempt {{item}}/5
+    set_fact:
+      work_note: "Attaching show processes memory command attempt {{item}}/5"
+  - name: Add work notes - Fetch logs
+    action: snowcommentupdate comment='{{work_note}}'
+    tags: snowcommentupdate
 
   - name: Running show processes memory command attempt {{item}}/5
     ios_command:
@@ -14,47 +14,94 @@
       - show processes memory
     register: show_memory
 
- - block: 
-   - name: Set Fact - fetch show memory
-     set_fact:
-       work_note: "{{ show_memory.cmd_Output }}"
-   - debug: var=show_memory
+  - block: 
+    - name: Set Fact - fetch show memory
+      set_fact:
+        work_note: "{{ show_memory.cmd_Output }}"
+    - debug: var=show_memory
 
-   - set_fact:
-      logs: '{{show_memory.cmd_Output}}'
+    - set_fact:
+       logs: '{{show_memory.cmd_Output}}'
 
-   - name: set fact -  file name
-     set_fact:
-       filename: "show_memoryattempt{{item}}.txt"
+    - name: set fact -  file name
+      set_fact:
+        filename: "show_memoryattempt{{item}}.txt"
       
-   - name: Attachment
-     action: snowlogattachment
-     register: result1
-   - debug: var=result1
+    - name: Attachment
+      action: snowlogattachment
+      register: result1
+    - debug: var=result1
 
 #show memory statistics
-- name: Running show memory statistics command attempt {{item}}/5
-  set_fact:
-    work_note: "show memory statistics attempt {{item}}/5"
+  - name: Running show memory statistics command attempt {{item}}/5
+    set_fact:
+      work_note: "show memory statistics attempt {{item}}/5"
 
- - name: Add work notes - fetching show memory statistics command attempt {{item}}/5
-   action: snowcommentupdate comment='{{work_note}}'
-   tags: snowcommentupdate
+  - name: Add work notes - fetching show memory statistics command attempt {{item}}/5
+    action: snowcommentupdate comment='{{work_note}}'
+    tags: snowcommentupdate
 
-- name: Running show memory statistics
-  ios_command:
-    commands:
-    - show memory statistics
-  register: show_memory_statistics
+  - name: Running show memory statistics
+    ios_command:
+      commands:
+      - show memory statistics
+    register: show_memory_statistics
 
-- name: Display show memory statistics
-  debug:
-    var: show_memory.stdout_lines
+  - name: Display show memory statistics
+    debug:
+      var: show_memory.stdout_lines
 
-- name: command output
-  set_fact:
-    work_note: "{{ show_memory_statistics.stdout_lines }}"
+  - name: command output
+    set_fact:
+      work_note: "{{ show_memory_statistics.stdout_lines }}"
 
-- name: Add work notes - fetch show processes memory command attempt {{item}}/5
-  action: snowcommentupdate comment='{{work_note}}'
-  tags: snowcommentupdate
+  - name: Add work notes - fetch show processes memory command attempt {{item}}/5
+    action: snowcommentupdate comment='{{work_note}}'
+    tags: snowcommentupdate
+#show clock
+  - name: Set Fact - Show Clock
+      work_note: 'Fetch Show Clock'
+
+  - name: Add work notes - Show Clock
+    action: snowcommentupdate comment='{{work_note}}'
+    tags: snowcommentupdate
+
+  - name: Fetch Show Clock
+    action: showClock
+    register: sclock
+  - block:
+    - name: Set Fact - Show Clock
+      set_fact:
+        work_note: '{{sclock.cmd_Output}}'
+
+    - name: Add work notes - Show Clock
+      action: snowcommentupdate comment='{{work_note}}'
+      tags: snowcommentupdate
+    when: "'Timed out' not in sclock.cmd_Output or 'timed out' not in sclock.cmd_Output"
+
+  #show logging 
+  - name: Set Fact - Run show logging command
+    set_fact:
+      work_note: "fetch show logging"
+
+  - name: Add work notes - Run show logging command
+    action: snowcommentupdate comment='{{work_note}}'
+    tags: snowcommentupdate
+
+  - name: Run show logging command
+    ios_command:
+      commands: show logging
+    register: log_output
+
+
+  - name: fetch logs
+    set_fact:
+      logs: '{{log_output.logs}}'
+
+  - name: Set Fact - fetch show logging command output
+    set_fact:
+    work_note: "show logging command output is - {{logs[-50:] | join('\n')}}"
+
+  - name: Add work notes - fetch show logging command output
+    action: snowcommentupdate comment='{{work_note}}'
+    tags: snowcommentupdate
